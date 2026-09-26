@@ -1,4 +1,5 @@
 using BattlePass;
+using System.Text.Json;
 
 var directory = Path.Combine(Path.GetTempPath(), "BattlePassTests-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(directory);
@@ -42,12 +43,43 @@ try
     Assert(PassState.PeriodKey(new DateTime(2020, 12, 31), true) ==
            PassState.PeriodKey(new DateTime(2021, 1, 1), true), "ISO year boundary");
 
+    var failedDay = tomorrow.AddDays(9);
+    var previousDaily = persisted.Daily;
+    var previousWeekly = persisted.Weekly;
+    var blockedSave = Path.Combine(directory, "progress-test-1.json.tmp");
+    Directory.CreateDirectory(blockedSave);
+    try
+    {
+        AssertThrows<UnauthorizedAccessException>(() => reloaded.Refresh(persisted, failedDay),
+            "Period reset must report a failed save");
+        Assert(ReferenceEquals(persisted.Daily, previousDaily) &&
+               ReferenceEquals(persisted.Weekly, previousWeekly), "Failed reset restores periods");
+        AssertThrows<UnauthorizedAccessException>(() => reloaded.RecordKill(persisted, false, failedDay),
+            "Kill must report a failed save");
+        Assert(persisted.Xp == 180 && ReferenceEquals(persisted.Daily, previousDaily) &&
+               ReferenceEquals(persisted.Weekly, previousWeekly), "Failed kill restores XP and quests");
+    }
+    finally
+    {
+        Directory.Delete(blockedSave);
+    }
+    reloaded.RecordKill(persisted, false, failedDay);
+    Assert(persisted.Xp == 190 && persisted.Daily.Counts.GetValueOrDefault("kills") == 1 &&
+           new PassState(config, directory).Get(76561198000000001).Xp == 190,
+        "Retry persists exactly one kill after failed save");
+
     config.SeasonId = "test-2";
     var newSeason = new PassState(config, directory).Get(76561198000000001);
     Assert(newSeason.Xp == 0 && !newSeason.Premium && newSeason.FreeClaims.Count == 0,
         "Season isolation");
     config.SeasonId = "../unsafe";
     AssertThrows<ArgumentException>(config.Validate, "Unsafe season ID rejected");
+    AssertThrows<ArgumentException>(() =>
+        JsonSerializer.Deserialize<BattlePassConfig>("{\"DailyQuests\":[null]}")!.Validate(),
+        "Null quest entry rejected");
+    AssertThrows<ArgumentException>(() =>
+        JsonSerializer.Deserialize<BattlePassConfig>("{\"Rewards\":[null]}")!.Validate(),
+        "Null reward entry rejected");
     Console.WriteLine("BattlePass tests passed.");
 }
 finally

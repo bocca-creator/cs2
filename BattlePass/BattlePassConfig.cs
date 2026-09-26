@@ -40,7 +40,7 @@ public sealed class BattlePassConfig : BasePluginConfig
         ValidateQuests(DailyQuests);
         ValidateQuests(WeeklyQuests);
         if (Rewards is null || Rewards.Any(r =>
-                r.Level < 1 || r.Level > MaxLevel ||
+                r is null || r.Level < 1 || r.Level > MaxLevel ||
                 string.IsNullOrWhiteSpace(r.Name) ||
                 r.Command is null ||
                 r.Command.Contains('\n') || r.Command.Contains('\r')) ||
@@ -51,7 +51,7 @@ public sealed class BattlePassConfig : BasePluginConfig
     private static void ValidateQuests(List<QuestDefinition>? quests)
     {
         if (quests is null || quests.Any(q =>
-                string.IsNullOrWhiteSpace(q.Id) || q.Id.Length > 50 ||
+                q is null || string.IsNullOrWhiteSpace(q.Id) || q.Id.Length > 50 ||
                 q.Id.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '-' && c != '_') ||
                 string.IsNullOrWhiteSpace(q.Name) ||
                 q.Type is not ("kills" or "headshots") || q.Target <= 0 || q.Xp < 0) ||

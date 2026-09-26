@@ -52,6 +52,24 @@ public sealed class PassState
 
     public bool Refresh(PlayerProgress progress, DateTime utcNow)
     {
+        var previousDaily = progress.Daily;
+        var previousWeekly = progress.Weekly;
+        if (!ResetPeriods(progress, utcNow)) return false;
+        try
+        {
+            Save();
+        }
+        catch
+        {
+            progress.Daily = previousDaily;
+            progress.Weekly = previousWeekly;
+            throw;
+        }
+        return true;
+    }
+
+    private static bool ResetPeriods(PlayerProgress progress, DateTime utcNow)
+    {
         var changed = false;
         var daily = PeriodKey(utcNow, false);
         var weekly = PeriodKey(utcNow, true);
@@ -65,20 +83,41 @@ public sealed class PassState
             progress.Weekly = new QuestPeriod { Key = weekly };
             changed = true;
         }
-        if (changed) Save();
         return changed;
     }
 
     public List<string> RecordKill(PlayerProgress progress, bool headshot, DateTime utcNow)
     {
-        Refresh(progress, utcNow);
+        var previousXp = progress.Xp;
+        var previousDaily = progress.Daily;
+        var previousWeekly = progress.Weekly;
         var completed = new List<string>();
-        AwardXp(progress, (long)_config.XpPerKill + (headshot ? _config.HeadshotBonusXp : 0));
-        UpdateQuests(progress, progress.Daily, _config.DailyQuests, headshot, completed);
-        UpdateQuests(progress, progress.Weekly, _config.WeeklyQuests, headshot, completed);
-        Save();
+        try
+        {
+            ResetPeriods(progress, utcNow);
+            progress.Daily = CopyPeriod(progress.Daily);
+            progress.Weekly = CopyPeriod(progress.Weekly);
+            AwardXp(progress, (long)_config.XpPerKill + (headshot ? _config.HeadshotBonusXp : 0));
+            UpdateQuests(progress, progress.Daily, _config.DailyQuests, headshot, completed);
+            UpdateQuests(progress, progress.Weekly, _config.WeeklyQuests, headshot, completed);
+            Save();
+        }
+        catch
+        {
+            progress.Xp = previousXp;
+            progress.Daily = previousDaily;
+            progress.Weekly = previousWeekly;
+            throw;
+        }
         return completed;
     }
+
+    private static QuestPeriod CopyPeriod(QuestPeriod period) => new()
+    {
+        Key = period.Key,
+        Counts = new Dictionary<string, int>(period.Counts),
+        Completed = new HashSet<string>(period.Completed)
+    };
 
     private void UpdateQuests(PlayerProgress player, QuestPeriod period, List<QuestDefinition> quests,
         bool headshot, List<string> completed)
