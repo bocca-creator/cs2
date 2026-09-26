@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../BattlePass/BattlePass.csproj" />
+    <ProjectReference Include="../Duels/Duels.csproj" />
   </ItemGroup>
 </Project>

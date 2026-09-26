@@ -2,8 +2,8 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <LangVersion>latest</LangVersion>
-    <AssemblyName>BattlePass</AssemblyName>
-    <RootNamespace>BattlePass</RootNamespace>
+    <AssemblyName>Duels</AssemblyName>
+    <RootNamespace>Duels</RootNamespace>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
